@@ -1,4 +1,4 @@
-name: Deploy Helm Chart to GKE
+name: Deploy Grafana
 
 on:
   push:
@@ -13,39 +13,31 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v1
       with:
-        version: 'latest'
-        install_components: kubectl
+        version: 'v1.20.0'
 
-    - name: Authenticate to GCP
-      uses: google-github-actions/auth@v1
+    - name: Set up GKE
+      uses: google-github-actions/setup-gcloud@master
       with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        version: '290.0.1'
+        service_account_email: ${{ secrets.GCP_SA_EMAIL }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Install Helm
-      run: |
-        curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-    - name: Clone Grafana
-      uses: GuillaumeFalourd/clone-github-repo-action@v2.3
-      with:
-        depth: 1
-        branch: 'main'
-        owner: 'rshabralieva2024'
-        repository: 'grafana_gke'
-    
-    - name: Access cloned repo
-      run: |
-         cd grafana_gke
-         ls -la
+    - name: Authenticate to GKE
+      run: gcloud container clusters get-credentials my-gke-cluster --zone us-central1-c --project my-gcp-project
 
-    - name: Deploy with Helm
-      env:
-        CLOUDSDK_PYTHON: /usr/bin/python3
+    - name: Annotate existing ClusterRole
       run: |
-        gcloud components update
-        gcloud container clusters get-credentials gke-project-426823-gke --region us-east5 --project gke-project-426823
-        helm repo add grafana https://grafana.github.io/helm-charts
-        helm install my-grafana grafana/grafana -f values.yaml -n grafana
-        
+        kubectl annotate clusterrole my-grafana-clusterrole meta.helm.sh/release-name=my-grafana --overwrite
+        kubectl annotate clusterrole my-grafana-clusterrole meta.helm.sh/release-namespace=grafana --overwrite
+
+    - name: Add Helm repository
+      run: helm repo add grafana https://grafana.github.io/helm-charts
+
+    - name: Update Helm repositories
+      run: helm repo update
+
+    - name: Install Grafana
+      run: helm install my-grafana grafana/grafana --namespace grafana --create-namespace
