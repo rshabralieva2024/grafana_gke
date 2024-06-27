@@ -34,11 +34,11 @@ jobs:
         depth: 1
         branch: 'main'
         owner: 'rshabralieva2024'
-        repository: 'harbor_gke'
+        repository: 'grafana_gke'
     
     - name: Access cloned repo
       run: |
-         cd harbor_gke
+         cd grafana_gke
          ls -la
 
     - name: Deploy with Helm
